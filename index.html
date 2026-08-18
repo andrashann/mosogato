@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dishwasher</title>
+<style>
+  :root {
+    --scale: 2;
+    --ink: #0b0b0b;
+    --wash: #0000ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    min-height: 100vh;
+    height: 100%;
+    margin: 0;
+    background: #5c7c9e radial-gradient(circle at 50% 30%, #8ea9c4, #3e5a76 75%);
+    font-family: "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 24px 20px;
+  }
+
+  /* The stage holds both windows at original RealBasic point coordinates,
+     scaled up as a whole so 2003 pixel sizes stay readable today. */
+  #stage {
+    position: relative;
+    width: 297px;
+    height: 308px;
+    transform: scale(var(--scale));
+    transform-origin: center center;
+  }
+  #stageBox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .window {
+    position: absolute;
+    border-radius: 6px 6px 4px 4px;
+    background: #ededed;
+    box-shadow: 0 1px 1px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.45);
+    overflow: hidden;
+    user-select: none;
+  }
+  .titlebar {
+    height: 19px;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    background: linear-gradient(#f4f4f4, #d3d3d3 45%, #c8c8c8);
+    border-bottom: 1px solid #9a9a9a;
+    font-size: 10px;
+    font-weight: bold;
+    color: #2b2b2b;
+    text-shadow: 0 1px 0 rgba(255,255,255,.7);
+  }
+  .titlebar .title { flex: 1; text-align: center; }
+  .closebox {
+    padding: 0;
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ff9f95, #e0483c 70%);
+    border: 1px solid rgba(0,0,0,.35);
+    cursor: pointer;
+  }
+  .closebox.spacer { visibility: hidden; cursor: default; }
+  .content {
+    position: relative;
+    height: calc(100% - 19px);
+    background: #fff;
+    transition: background-color .18s linear;
+  }
+
+  /* Window1 -- RealBasic content area 297 x 289, plus the 19px title bar
+     above it, so the frame is 308 tall. Controls keep their own coordinates. */
+  #window1 { left: 0; top: 0; width: 297px; height: 308px; }
+  #window1 .content.washing { background: var(--wash); }
+
+  #staticText1 {
+    position: absolute;
+    left: 20px; top: 14px;
+    width: 262px;
+    min-height: 37px;
+    font-size: 12px;
+    line-height: 15px;
+    text-align: center;
+    color: var(--ink);
+  }
+  #canvas1 {
+    position: absolute;
+    left: 92px; top: 63px;
+    width: 112px; height: 113px;
+    background-repeat: no-repeat;
+    background-position: 0 0;
+    background-size: 111px 111px;
+    image-rendering: pixelated;
+  }
+  .hidden { visibility: hidden; }
+
+  /* Aqua-flavored push buttons. */
+  button.push {
+    position: absolute;
+    left: 15px;
+    width: 267px; height: 20px;
+    font: 12px "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #1a1a1a;
+    background: linear-gradient(#ffffff, #f0f0f0 48%, #dcdcdc 52%, #ececec);
+    border: 1px solid #9b9b9b;
+    border-radius: 10px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.12), inset 0 1px 0 #fff;
+    cursor: pointer;
+  }
+  button.push:active {
+    background: linear-gradient(#9cc0ea, #4a86c8 48%, #3c76b6 52%, #6ba0d6);
+    color: #fff;
+    text-shadow: 0 -1px 0 rgba(0,0,0,.3);
+  }
+  button.push.default {
+    border-color: #4f7fb3;
+    color: #fff;
+    background: linear-gradient(#a9cdf2, #5b93d1 48%, #4a82c2 52%, #79aade);
+    text-shadow: 0 -1px 0 rgba(0,0,0,.25);
+    animation: aquaPulse 2.1s ease-in-out infinite;
+  }
+  @keyframes aquaPulse {
+    0%, 100% { filter: saturate(1) brightness(1); }
+    50%      { filter: saturate(1.5) brightness(1.12); }
+  }
+  button.push:focus-visible, .closebox:focus-visible, #langSwitch button:focus-visible {
+    outline: 2px solid #3b7dd8;
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button.push.default { animation: none; }
+    .content { transition: none; }
+  }
+  #pushButton1 { top: 188px; }
+  #pushButton3 { top: 218px; }
+  #pushButton2 { top: 248px; }
+
+  /* Window2 "Nevjegy" -- content 298 x 180 plus title bar, shown over window1. */
+  #window2 {
+    width: 298px; height: 199px;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+  #window2.open { display: block; }
+  #aboutText {
+    position: absolute;
+    left: 20px; top: 14px;
+    width: 260px; height: 100px;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 12px;
+    line-height: 14px;
+    white-space: pre-wrap;
+    color: var(--ink);
+  }
+  #window2 button.push {
+    left: 181px; top: 140px; width: 97px;
+  }
+
+  /* Revival chrome: everything below sits outside the 2003 window on purpose. */
+  #langSwitch {
+    display: flex;
+    gap: 1px;
+    padding: 1px;
+    border-radius: 999px;
+    background: rgba(0,0,0,.22);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.25);
+  }
+  #langSwitch button {
+    font: 11px "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    letter-spacing: .04em;
+    color: #e8eef4;
+    background: none;
+    border: 0;
+    border-radius: 999px;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  #langSwitch button[aria-pressed="true"] {
+    background: rgba(255,255,255,.9);
+    color: #2c3e50;
+  }
+  #caption {
+    max-width: 34em;
+    margin: 0;
+    text-align: center;
+    font-size: 12px;
+    line-height: 18px;
+    color: rgba(255,255,255,.72);
+    text-shadow: 0 1px 2px rgba(0,0,0,.45);
+  }
+
+  /* Quit leaves an empty desktop, the way closing the app did. */
+  #stage.quit { visibility: hidden; }
+  #quitNote {
+    display: none;
+    color: #f2f2f2;
+    font-size: 13px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+  #quitNote.show { display: block; }
+  #quitNote button {
+    font: inherit;
+    color: #fff;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="stageBox">
+<div id="stage">
+  <div class="window" id="window1">
+    <div class="titlebar">
+      <span class="closebox spacer"></span>
+      <span class="title" id="win1title">Mosogat&oacute;</span>
+      <span class="closebox spacer"></span>
+    </div>
+    <div class="content" id="win1content">
+      <div id="staticText1"></div>
+      <div id="canvas1"></div>
+      <button class="push default" id="pushButton1"></button>
+      <button class="push" id="pushButton3"></button>
+      <button class="push" id="pushButton2"></button>
+    </div>
+  </div>
+
+  <div class="window" id="window2">
+    <div class="titlebar">
+      <button type="button" class="closebox" id="win2close" aria-label="Close" title="Close"></button>
+      <span class="title" id="win2title"></span>
+      <span class="closebox spacer"></span>
+    </div>
+    <div class="content">
+      <div id="aboutText"></div>
+      <button class="push" id="acceptButton"></button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div id="quitNote"><span id="quitText"></span> <button type="button" id="relaunch"></button></div>
+
+<div id="langSwitch" role="group" aria-label="Nyelv / Language">
+  <button type="button" id="btnHu" aria-pressed="true">Magyar</button>
+  <button type="button" id="btnEn" aria-pressed="false">English</button>
+</div>
+<p id="caption"></p>
+
+<script>
+// Faithful port of the old RealBasic project "Mosogato" (2003).
+// Two project files survive: mosogatop (Hungarian, the original) and
+// mosogatop_e.rb (the English conversion, whose changed lines the author
+// marked "// <-- CONVERTED"). Both carry identical layouts and logic, so the
+// switch below swaps only the strings. The author never translated the
+// Nevjegy window in 2003, so its English text is new here.
+
+var PLATE = {
+  dirty: "data:image/gif;base64,R0lGODlhbwBvAJEAAAAAAP///8DAwP///yH5BAEAAAMALAAAAABvAG8AAAL/nI+py30Ao5yu2ouzlqH7DwaURpZmFYXqCkrnC1sQS9dfFOcxYPe+CNAJMbOf0QYRDJeJ4vFZSzKXPKgVGZzurtweRGuqdsdRJZg4nqhTXYD57BAfJz469AtfyH9sbt/oloewh0WY5lT3BmfIgkim4liWxwhJWQho2aLIlOkR6bX2uSIaEjjV2YHaErpWl8gJisk620l6swmDqkrLa0ejixvmVdhbbJvqFUyCFWXsfJxau/VL3PrcOvyrfJFZO+t5zeGqLUxd7QsULo4kuWzejL2q/vc+StJ9Tn8zrw/ZjhEl3zF+0JD9ymBJV7xfBMeN2jaoXqOFDBtmeyhDYiU1/7L4XYQEcUBCgU8IFkwIkZI3dAH3WWwJ0oHGUixhgvPIrlEDlefm0Hw5M5WyoDf7NfuJk6gIPY3gGT2KdF7OmE2aTlwna1RSoqYQWL1acCNYZ4B0RhxVUZVWUddKNlLEc61auZ/IusX4AK3cNt+KsvKD18DXn4d4RfsL2J6BuKVEFKblsuadt4v1Np47NpS8p5OpMjLEmY9hpI884f1Ms3Qvy6UdUx1skMzq1lNLiYSN2alm2rU1ob7RejTv3p4E/B6ebjdym7eOD++7nHlx57ShRw/qhnpw5dexG2e93Vj3Fg+1P5Ja9m6p7/54m+TTeb35x+FE5/7MvnH1rZd8gv+c7wd/TvknH3j0tWVfWKb9ZyBf6swhGWzTSXjgbB0pqJISAMpmYYJYeVdZe9dBBiFHH90Son7jJRcaXR82KIIZG0anYGQmSidUiiqu6CBFIq6X1488XmEdjF3dJuSQJRWZZI5BNqlkHUySFxiSUEYpUGgZVnUllpndaCQujHkJColXHqkjlWRmGaFrVHHZ5ZosTukmkEzBKOdhwqlp551xemkXn5rEQaGcz5wJUX47GnrooreENBKZ6Ak6aAWKUjoeUMA9FFKamCJn0oZoElroeaGyRQ5COFYoYGxVcqOUFac+hVIJl35K5KylxtjpArduamqou7rRKwP4cCgsnk6zvtBNblFNuso/L/yKq5SaLqhNsZbWQqOZ1QqlrQXU7pNnNEgIEO4F4wIraTLpYrAuOIAC824G8crLY1jE5nEvvt3yga4gA/R7k3s17ivwwDWmUxiEASd8AMGb7fKiuxArILGL3N3x8MUJGOdspgh77OvCI45McgMg55lEvQmja7Kp6Lp8Mcwhy0oszSkrHLN9He8cg809IzUz0FPM3OZGLf9sNBgzg1zM0zo3DYPUVj9NdQEAOw==",
+  clean: "data:image/gif;base64,R0lGODlhbwBvAJEAAAAAAP///8DAwP///yH5BAEAAAMALAAAAABvAG8AAAL/nI+py30Ao5yu2ouzlqH7DwaURpZmFYXqCkrnC1sQS9dfFOcxYPe+CNAJMbOf0QYRDJeJ4vFZSzKXPKgVGZzurtweRGuqdsdRJZg4nqhTXYD57BAfJz469AtfyH9sbt/oloewh0WY5lT3BmfIgkim4liWxwhJ+dhi2aLIlOkReRnV2RE4JSoCamVKOiT6iVrXugnT+prmJRvmVUsWm4O1++h6s0VjCswneZJpfIxcjCsT1Vy7DO0gPU0dRbKcrf2sge39upxhyTw+Bx7dmH58bv1Q7A4MjzJPX7/OQIme/9QvHr5/u8416EewWUAGAxN+W5GlSTuH7xrJQkhRH0RZ/xMzaoQkEaLHihsHdRxJzqJJSChJhlg14GRLVP3kiZz58KUZRv5wOtNpgKfPgiUHCB2aEpIZmUh5NTLKtGkbi0elguIpoKrVYBu1brWl1OtXP11vjgWrU+zZO2VZrp0a1uzbVG1fziUb1+1dtnnt7uWbVu7fn5rUDhZXOOphwTeUGF7sFyhUvZAbNg7KuHJkTZgpa/bsaafizws7b/58o6jpFqhBj1KEsfUolTZday5dm7Xs2UoVxEaNO7fu1sGFpwZO2/fov8VX2t7b3Pnpw9EPZF2+NmC8yZnf2qtwvXt2i9tXTx+fnJ14q9/RWP5ajdv7re0zhF/vE175Bfef48DU/0I37CUTYChICfNaDv3hR1AnbuxnwYL+/eOgABBeIOFLPVFT4YUYZHieO7F4aF8rGx5yC4kagKhhOgg2piIJLLaokDEPCjLAjBqe2MiLmsR4Qlbo/JGKj5hYiGMCOkLEgRdNzoFkkgosGcoadlxxo5T8GZlPEkBOISRKXmr5IZfvZEnmh2F2+eCXUlpoJi9tphmDkDwWEiWdOsBJJJYRWOimng0AeqWTfwIqKI6A2mnlBIsGmigMj066aKQDFAAAOw=="
+};
+
+var STRINGS = {
+  hu: {
+    title:    "Mosogató",
+    dirty:    "Ez egy piszkos tányér. Elmosogatom, hogy neked ne kelljen vele annyit dolgozni.",
+    washing:  "A mosogatás folyamatban van...",
+    done:     "Látod? Már kész is! És mennyi munkát megspóroltál!",
+    start:    "Mosogatás indítása",
+    again:    "Másik tányér mosogatása",
+    about:    "Névjegy",
+    aboutTitle: "Névjegy",
+    aboutText: "A program 2003-ban készült.\n\nA program freeware, tehát szabadon terjeszthető, másolható, azonban a programért pénzt kérni nem szabad.",
+    accept:   "Elfogadom",
+    quit:     "Kilépés",
+    quitNote: "A Mosogató kilépett.",
+    relaunch: "Indítsd újra",
+    caption:  "Mosogató – egy projekt 2003 augusztusából. REALbasic, Mac OS X. Ez a lap az eredeti projektfájlból készült, az eredeti képekkel és pixelméretekkel."
+  },
+  en: {
+    title:    "Dishwasher",
+    dirty:    "It is a dirty plate. I will clean it to help you.",
+    washing:  "Dishwashing...",
+    done:     "It is ready, and you did not have to work with it!",
+    start:    "Start dishwashing",
+    again:    "Clean another plate",
+    about:    "About",
+    aboutTitle: "About",
+    aboutText: "This program was made in 2003.\n\nIt is freeware, so it may be passed on and copied freely, but no money may be charged for it.",
+    accept:   "I accept",
+    quit:     "Quit",
+    quitNote: "The Dishwasher has quit.",
+    relaunch: "Launch again",
+    caption:  "Dishwasher – a project from August 2003. REALbasic, Mac OS X. Rebuilt from the original project file, with its original artwork and pixel dimensions."
+  }
+};
+
+var canvas1     = document.getElementById("canvas1");
+var staticText1 = document.getElementById("staticText1");
+var content     = document.getElementById("win1content");
+var win1title   = document.getElementById("win1title");
+var pushButton1 = document.getElementById("pushButton1");
+var pushButton2 = document.getElementById("pushButton2");
+var pushButton3 = document.getElementById("pushButton3");
+var window2     = document.getElementById("window2");
+var stage       = document.getElementById("stage");
+
+var lang = "hu";
+// The original branched on PushButton1's own caption; a flag says the same
+// thing without breaking when the language changes mid-wash.
+var washed = false;
+var washing = false;
+var washTimer = null;
+
+function t(key) { return STRINGS[lang][key]; }
+
+function setPlate(which) {
+  canvas1.style.backgroundImage = "url(" + PLATE[which] + ")";
+}
+
+// Repaints every string from the current language without disturbing state.
+function render() {
+  win1title.textContent = t("title");
+  document.documentElement.lang = lang;
+  pushButton1.textContent = washed ? t("again") : t("start");
+  pushButton3.textContent = t("about");
+  pushButton2.textContent = t("quit");
+  staticText1.textContent = washing ? t("washing") : (washed ? t("done") : t("dirty"));
+  setPlate(washed ? "clean" : "dirty");
+  document.getElementById("quitText").textContent = t("quitNote");
+  document.getElementById("relaunch").textContent = t("relaunch");
+  document.getElementById("win2title").textContent = t("aboutTitle");
+  document.getElementById("aboutText").textContent = t("aboutText");
+  document.getElementById("acceptButton").textContent = t("accept");
+  document.getElementById("caption").textContent = t("caption");
+}
+
+// Timer1: Mode 1 (single shot), Period 2000.
+function timer1Action() {
+  washing = false;
+  washed = true;
+  content.classList.remove("washing");
+  pushButton1.classList.remove("hidden");
+  pushButton2.classList.remove("hidden");
+  pushButton3.classList.remove("hidden");
+  canvas1.classList.remove("hidden");
+  render();
+}
+
+// PushButton1.Action
+pushButton1.addEventListener("click", function () {
+  if (washed) {
+    washed = false;
+    render();
+  } else {
+    washing = true;
+    content.classList.add("washing");
+    pushButton1.classList.add("hidden");
+    pushButton2.classList.add("hidden");
+    pushButton3.classList.add("hidden");
+    canvas1.classList.add("hidden");
+    render();
+    washTimer = window.setTimeout(timer1Action, 2000);
+  }
+});
+
+// PushButton3.Action -- Window2.Show
+pushButton3.addEventListener("click", function () {
+  window2.classList.add("open");
+});
+
+// Window2: both the close box and the accept button call Self.Close.
+function closeAbout() { window2.classList.remove("open"); }
+document.getElementById("acceptButton").addEventListener("click", closeAbout);
+document.getElementById("win2close").addEventListener("click", closeAbout);
+
+// PushButton2.Action -- Self.Close : Quit
+pushButton2.addEventListener("click", function () {
+  stage.classList.add("quit");
+  document.getElementById("quitNote").classList.add("show");
+});
+
+document.getElementById("relaunch").addEventListener("click", function () {
+  window.clearTimeout(washTimer);
+  washed = false;
+  washing = false;
+  content.classList.remove("washing");
+  pushButton1.classList.remove("hidden");
+  pushButton2.classList.remove("hidden");
+  pushButton3.classList.remove("hidden");
+  canvas1.classList.remove("hidden");
+  closeAbout();
+  stage.classList.remove("quit");
+  document.getElementById("quitNote").classList.remove("show");
+  render();
+});
+
+function setLang(next) {
+  lang = next;
+  document.getElementById("btnHu").setAttribute("aria-pressed", String(next === "hu"));
+  document.getElementById("btnEn").setAttribute("aria-pressed", String(next === "en"));
+  render();
+}
+document.getElementById("btnHu").addEventListener("click", function () { setLang("hu"); });
+document.getElementById("btnEn").addEventListener("click", function () { setLang("en"); });
+
+// Keep the window pair fitting whatever viewport it lands in.
+function fit() {
+  var s = Math.min(window.innerWidth / 337, (window.innerHeight - 150) / 308, 3);
+  document.documentElement.style.setProperty("--scale", Math.max(s, 1).toFixed(3));
+  document.getElementById("stageBox").style.height = (308 * Math.max(s, 1)) + "px";
+  document.getElementById("stageBox").style.width  = (297 * Math.max(s, 1)) + "px";
+}
+window.addEventListener("resize", fit);
+fit();
+render();
+</script>
+</body>
+</html>
